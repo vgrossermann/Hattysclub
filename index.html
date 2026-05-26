@@ -1464,6 +1464,187 @@ select.ing-search {
 .title-main { transition: opacity 0.15s ease; }
 .title-main:hover { opacity: 0.85; }
 
+/* ============================================================
+   V3.6 — SYNC STATUS VISUAL + INVITE CODE BOX
+   ============================================================ */
+.sync-status-block {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (max-width: 760px) {
+  .sync-status-block { grid-template-columns: 1fr; }
+}
+
+.sync-status-card {
+  padding: 22px 24px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: all 0.25s ease;
+}
+.sync-status-card.online {
+  border-color: var(--olive, #5d6042);
+  background: linear-gradient(135deg, var(--paper) 0%, rgba(93, 96, 66, 0.06) 100%);
+}
+.sync-status-card.local {
+  border-color: var(--rule);
+  background: var(--paper);
+}
+
+.sync-status-visual {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.sync-status-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #b0b0b0;
+  position: relative;
+  flex-shrink: 0;
+}
+.sync-status-card.online .sync-status-dot {
+  background: var(--olive, #5d6042);
+}
+.sync-status-card.online .sync-status-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--olive, #5d6042);
+  opacity: 0.4;
+  animation: syncPulse 1.8s ease-in-out infinite;
+}
+@keyframes syncPulse {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.4); opacity: 0; }
+}
+
+.sync-status-text {
+  flex: 1;
+  min-width: 0;
+}
+.sync-status-mode {
+  font-family: 'Fraunces', serif;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.sync-status-card.online .sync-status-mode {
+  color: var(--olive, #5d6042);
+}
+.sync-status-info {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.sync-status-restaurant {
+  border-top: 1px dashed var(--rule);
+  padding-top: 12px;
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  display: none;
+}
+.sync-status-restaurant.show { display: block; }
+.sync-status-restaurant strong {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+/* Invite code card */
+.invite-code-card {
+  padding: 22px 24px;
+  background: var(--paper);
+  border: 1px solid var(--accent);
+  border-left-width: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.invite-code-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.invite-code-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+}
+.invite-code-hint {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.invite-code-display {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.invite-code-value {
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-align: center;
+  padding: 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
+  user-select: all;
+  cursor: text;
+}
+.btn-copy-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 18px;
+  background: var(--ink);
+  color: var(--bg);
+  border: none;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+.btn-copy-code:hover { background: var(--accent); }
+.btn-copy-code.copied { background: var(--olive, #5d6042); }
+.btn-copy-code .copy-icon { font-size: 14px; }
+
+.invite-code-message {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--olive, #5d6042);
+  min-height: 14px;
+  text-align: center;
+}
+
 .auth-submit {
   width: 100%;
   margin-top: 24px;
@@ -3110,6 +3291,35 @@ select.ing-search {
       <strong>Team sync —</strong> Connect to your team's shared database (Supabase) so everyone sees the same custom ingredients, recipes, and menus. If you don't have it set up yet, follow the deployment guide.
     </div>
 
+    <!-- v3.6: Visual status block + invite code -->
+    <div class="sync-status-block">
+      <div class="sync-status-card" id="syncStatusCard">
+        <div class="sync-status-visual">
+          <div class="sync-status-dot" id="syncStatusDot"></div>
+          <div class="sync-status-text">
+            <div class="sync-status-mode" id="syncStatusMode">—</div>
+            <div class="sync-status-info" id="syncStatusInfo">—</div>
+          </div>
+        </div>
+        <div class="sync-status-restaurant" id="syncStatusRestaurant"></div>
+      </div>
+
+      <div class="invite-code-card" id="inviteCodeCard" style="display:none;">
+        <div class="invite-code-header">
+          <span class="invite-code-label" data-i18n="inviteShareTitle">Restaurant invite code</span>
+          <span class="invite-code-hint" data-i18n="inviteShareHint">Share this code with your team so they can join</span>
+        </div>
+        <div class="invite-code-display">
+          <div class="invite-code-value" id="inviteCodeValue">——————</div>
+          <button class="btn-copy-code" id="btnCopyInviteCode" type="button">
+            <span class="copy-icon">📋</span>
+            <span class="copy-label" data-i18n="btnCopyCode">Copy</span>
+          </button>
+        </div>
+        <div class="invite-code-message" id="inviteCodeMessage"></div>
+      </div>
+    </div>
+
     <div class="sync-card">
       <h3><span data-i18n="syncStatus">Sync</span> <em data-i18n="syncStatusEm">status.</em></h3>
       <p class="descr" id="syncCardDescr" data-i18n="syncDescr">Connect to a Supabase backend to share your library with your team in real time.</p>
@@ -3494,6 +3704,18 @@ const I18N = {
     inviteCodeHint: 'Share this code with teammates so they can join this restaurant.',
     inviteCopied: 'Code copied to clipboard.',
 
+    // === v3.6: sync status visuals ===
+    syncModeOnline: 'ONLINE',
+    syncModeLocal: 'LOCAL',
+    syncInfoOnline: 'Connected · real-time sync with your team',
+    syncInfoLocal: 'Data stays on this device only',
+    syncRestaurantLabel: 'Restaurant',
+    inviteShareTitle: 'Restaurant invite code',
+    inviteShareHint: 'Share this code with your team — they paste it when creating their account.',
+    btnCopyCode: 'Copy',
+    btnCopied: 'Copied',
+    inviteCopiedMsg: '✓ Code copied — share it with your team',
+
     // === v3: home ===
     tabHome: 'Home',
     backHome: 'Back to home',
@@ -3855,6 +4077,18 @@ const I18N = {
     inviteCodeLabel: 'Código de invitación del restaurante',
     inviteCodeHint: 'Comparte este código con tu equipo para que se unan a este restaurante.',
     inviteCopied: 'Código copiado al portapapeles.',
+
+    // === v3.6: estado de sync visual ===
+    syncModeOnline: 'EN LÍNEA',
+    syncModeLocal: 'LOCAL',
+    syncInfoOnline: 'Conectado · sincronización en tiempo real con tu equipo',
+    syncInfoLocal: 'Los datos se quedan solo en este dispositivo',
+    syncRestaurantLabel: 'Restaurante',
+    inviteShareTitle: 'Código de invitación del restaurante',
+    inviteShareHint: 'Compártelo con tu equipo — lo pegan al crear su cuenta.',
+    btnCopyCode: 'Copiar',
+    btnCopied: 'Copiado',
+    inviteCopiedMsg: '✓ Código copiado — compártelo con tu equipo',
 
     // === v3: home ===
     tabHome: 'Inicio',
@@ -6959,11 +7193,13 @@ async function connectSupabase() {
     saveState();
     updateSyncStatus(true);
     setStatus(t('connectedMsg') + ': ' + team, 'ok');
+    if (typeof renderSyncStatus === 'function') renderSyncStatus();
     await pullFromCloud();
     await syncToCloud();
   } catch (err) {
     setStatus(t('msgConnectErr') + ' ' + (err.message || err), 'err');
     updateSyncStatus(false);
+    if (typeof renderSyncStatus === 'function') renderSyncStatus();
   }
 }
 
@@ -6973,6 +7209,7 @@ function disconnectSupabase() {
   saveState();
   updateSyncStatus(false);
   setStatus(t('disconnectedMsg'), 'ok');
+  if (typeof renderSyncStatus === 'function') renderSyncStatus();
 }
 
 function updateSyncStatus(connected) {
@@ -7646,6 +7883,10 @@ function wireEvents() {
   $('#btnDisconnectSupa').addEventListener('click', disconnectSupabase);
   $('#btnSyncNow').addEventListener('click', manualSync);
 
+  // v3.6: Copy invite code button
+  const btnCopy = $('#btnCopyInviteCode');
+  if (btnCopy) btnCopy.addEventListener('click', copyInviteCode);
+
   // Backup
   $('#btnBackupExport').addEventListener('click', exportBackup);
   $('#btnBackupImport').addEventListener('click', () => $('#backupFileInput').click());
@@ -7726,11 +7967,14 @@ function showView(view) {
   if (view === 'ingredients') renderIngredients();
   if (view === 'menu') renderMenu();
   if (view === 'custom') { renderRecipeBuilder(); renderCustomLibrary(); }
-  if (view === 'team' && STATE.supabaseConfig) {
-    const u = $('#supaUrl'), k = $('#supaKey'), tt = $('#supaTeam');
-    if (u) u.value = STATE.supabaseConfig.url || '';
-    if (k) k.value = STATE.supabaseConfig.key || '';
-    if (tt) tt.value = STATE.supabaseConfig.team || '';
+  if (view === 'team') {
+    if (STATE.supabaseConfig) {
+      const u = $('#supaUrl'), k = $('#supaKey'), tt = $('#supaTeam');
+      if (u) u.value = STATE.supabaseConfig.url || '';
+      if (k) k.value = STATE.supabaseConfig.key || '';
+      if (tt) tt.value = STATE.supabaseConfig.team || '';
+    }
+    if (typeof renderSyncStatus === 'function') renderSyncStatus();
   }
 }
 
@@ -7977,6 +8221,109 @@ async function authSignOut() {
 
 function generateInviteCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+// v3.6: Render the visual sync status panel + invite code box
+async function renderSyncStatus() {
+  const card = $('#syncStatusCard');
+  const modeEl = $('#syncStatusMode');
+  const infoEl = $('#syncStatusInfo');
+  const restEl = $('#syncStatusRestaurant');
+  const inviteCard = $('#inviteCodeCard');
+  const inviteValue = $('#inviteCodeValue');
+  if (!card || !modeEl) return;
+
+  const isOnline = !!(STATE.supabase && STATE.supabaseConfig);
+
+  if (isOnline) {
+    card.classList.remove('local');
+    card.classList.add('online');
+    modeEl.textContent = t('syncModeOnline');
+    infoEl.textContent = t('syncInfoOnline');
+  } else {
+    card.classList.remove('online');
+    card.classList.add('local');
+    modeEl.textContent = t('syncModeLocal');
+    infoEl.textContent = t('syncInfoLocal');
+  }
+
+  // Restaurant name (always shown if user is logged in)
+  if (STATE.auth && STATE.auth.restaurantName) {
+    restEl.innerHTML = `<strong>${escHtml(t('syncRestaurantLabel'))}</strong>${escHtml(STATE.auth.restaurantName)}`;
+    restEl.classList.add('show');
+  } else {
+    restEl.classList.remove('show');
+  }
+
+  // Invite code box — only shown if online AND user has a restaurant
+  if (isOnline && STATE.auth && STATE.auth.restaurantId && inviteCard) {
+    inviteCard.style.display = 'flex';
+    // Fetch invite code from Supabase
+    try {
+      const { data, error } = await STATE.supabase
+        .from('mensa_restaurants')
+        .select('invite_code')
+        .eq('id', STATE.auth.restaurantId)
+        .maybeSingle();
+      if (data && data.invite_code) {
+        inviteValue.textContent = data.invite_code;
+      } else {
+        inviteValue.textContent = '——————';
+      }
+    } catch (e) {
+      inviteValue.textContent = '——————';
+    }
+  } else if (inviteCard) {
+    inviteCard.style.display = 'none';
+  }
+}
+
+function copyInviteCode() {
+  const val = $('#inviteCodeValue');
+  const btn = $('#btnCopyInviteCode');
+  const msg = $('#inviteCodeMessage');
+  if (!val) return;
+  const code = val.textContent.trim();
+  if (!code || code === '——————') return;
+
+  const showCopied = () => {
+    if (btn) {
+      btn.classList.add('copied');
+      const label = btn.querySelector('.copy-label');
+      const original = label ? label.textContent : '';
+      if (label) label.textContent = t('btnCopied');
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        if (label) label.textContent = original || t('btnCopyCode');
+      }, 2000);
+    }
+    if (msg) {
+      msg.textContent = t('inviteCopiedMsg');
+      setTimeout(() => { msg.textContent = ''; }, 3500);
+    }
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(showCopied).catch(() => {
+      // fallback below
+      legacyCopy(code);
+      showCopied();
+    });
+  } else {
+    legacyCopy(code);
+    showCopied();
+  }
+}
+
+function legacyCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta);
 }
 
 function authContinueOffline() {
