@@ -1465,6 +1465,112 @@ select.ing-search {
 .title-main:hover { opacity: 0.85; }
 
 /* ============================================================
+   V3.7 — AUTH SUCCESS CARD + ERROR BANNER
+   ============================================================ */
+.auth-success-card {
+  text-align: center;
+}
+.auth-success-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: var(--olive, #5d6042);
+  color: #fff;
+  font-size: 32px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: successPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes successPop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.auth-success-title {
+  font-family: 'Fraunces', serif;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.auth-success-subtitle {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+.auth-success-note {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--bg);
+  border-left: 3px solid var(--accent);
+  padding: 12px 14px;
+  margin: 0 0 24px;
+  text-align: left;
+}
+.auth-success-note strong { color: var(--accent); }
+.auth-success-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 16px 0 0;
+}
+.auth-success-meta strong { color: var(--ink); }
+
+/* Error/success banners in auth form */
+.auth-msg {
+  margin-top: 16px;
+  font-family: 'Inter Tight', sans-serif;
+  text-align: left;
+  min-height: 0;
+  transition: all 0.2s ease;
+}
+.auth-msg.error-banner,
+.auth-msg.ok-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  animation: bannerSlide 0.25s ease;
+}
+.auth-msg.error-banner {
+  background: rgba(184, 52, 27, 0.08);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+.auth-msg.ok-banner {
+  background: rgba(93, 96, 66, 0.08);
+  border: 1px solid var(--olive, #5d6042);
+  color: var(--olive, #5d6042);
+}
+.auth-msg .msg-icon {
+  flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+.auth-msg .msg-text {
+  flex: 1;
+  font-weight: 500;
+}
+@keyframes bannerSlide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
    V3.6 — SYNC STATUS VISUAL + INVITE CODE BOX
    ============================================================ */
 .sync-status-block {
@@ -8021,17 +8127,73 @@ async function authSignUp(email, password, restaurantName, inviteCode, accountTy
   }
 
   try {
-    // Step 1: Create the auth user
+    // ──────────────────────────────────────────────────────────
+    // STEP 0: For MEMBER signup, validate the invite code FIRST
+    // (before creating the auth user) so we never leave an
+    // orphan account if the code is wrong.
+    // ──────────────────────────────────────────────────────────
+    let preValidatedRestaurant = null;
+
+    if (accountType === 'member' || (inviteCode && inviteCode.trim())) {
+      const code = (inviteCode || '').trim().toUpperCase();
+      if (!code) {
+        return { ok: false, error: STATE.lang === 'es' ? 'Falta el código de invitación.' : 'Invitation code is required.' };
+      }
+
+      // Use RPC function for invite lookup (works without auth, bypasses RLS)
+      const { data: rpcData, error: rpcErr } = await sb.rpc('lookup_invite_code', { code });
+
+      let r = null;
+      if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+        r = rpcData[0];
+      } else if (!rpcErr && rpcData && !Array.isArray(rpcData)) {
+        r = rpcData;
+      } else {
+        // Fallback: try direct table read (works if user is already authenticated)
+        const { data: r2, error: e2 } = await sb
+          .from('mensa_restaurants')
+          .select('id, name, invite_code')
+          .eq('invite_code', code)
+          .maybeSingle();
+        if (!e2 && r2) r = r2;
+      }
+
+      if (!r) {
+        return { ok: false, error: t('authInviteInvalid') };
+      }
+      preValidatedRestaurant = r;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // STEP 1: Create the auth user
+    // ──────────────────────────────────────────────────────────
     const { data: signUpData, error: signUpErr } = await sb.auth.signUp({ email, password });
-    if (signUpErr) return { ok: false, error: signUpErr.message };
+    if (signUpErr) {
+      const msg = signUpErr.message || '';
+      // Friendlier message for "already registered"
+      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
+        return {
+          ok: false,
+          error: STATE.lang === 'es'
+            ? 'Este correo ya tiene una cuenta. Inicia sesión en su lugar.'
+            : 'This email already has an account. Sign in instead.'
+        };
+      }
+      return { ok: false, error: msg };
+    }
     const user = signUpData.user;
     if (!user) return { ok: false, error: 'No user returned from signup.' };
 
-    // Step 2: Force a fresh sign in to get an active session with valid JWT
+    // ──────────────────────────────────────────────────────────
+    // STEP 2: Sign in to activate session (needed for RLS inserts)
+    // ──────────────────────────────────────────────────────────
     const { error: signInErr } = await sb.auth.signInWithPassword({ email, password });
-    if (signInErr) return { ok: false, error: signInErr.message };
+    if (signInErr) {
+      // Auth user exists but we couldn't sign in — return error
+      return { ok: false, error: signInErr.message };
+    }
 
-    // Step 3: Wait until the session JWT is fully propagated
+    // Step 3: Wait until session JWT is fully active
     const session = await waitForActiveSession(sb, 5000);
     if (!session) {
       return { ok: false, error: STATE.lang === 'es' ? 'No se pudo activar la sesión. Intenta de nuevo.' : 'Could not activate session. Try again.' };
@@ -8039,64 +8201,66 @@ async function authSignUp(email, password, restaurantName, inviteCode, accountTy
     const activeUserId = session.user.id;
     const activeEmail = session.user.email;
 
-    // Step 4: Create restaurant OR join existing
+    // ──────────────────────────────────────────────────────────
+    // STEP 4: Create or join restaurant. If anything here fails,
+    // we sign the user out so they can try again cleanly.
+    // ──────────────────────────────────────────────────────────
     let restaurantId, restaurantNameFinal, role;
 
-    if (accountType === 'member' || (inviteCode && inviteCode.trim())) {
-      // Member flow: join existing restaurant via invite code
-      const code = (inviteCode || '').trim().toUpperCase();
-      if (!code) {
-        return { ok: false, error: STATE.lang === 'es' ? 'Falta el código de invitación.' : 'Invitation code is required.' };
-      }
-      const { data: r, error: lookupErr } = await sb
-        .from('mensa_restaurants')
-        .select('*')
-        .eq('invite_code', code)
-        .maybeSingle();
-      if (lookupErr || !r) return { ok: false, error: t('authInviteInvalid') };
-      restaurantId = r.id;
-      restaurantNameFinal = r.name;
-      role = 'member';
-      const memberRes = await insertWithRetry(sb, 'mensa_members', {
-        restaurant_id: r.id,
-        user_id: activeUserId,
-        role: 'member'
-      }, 3);
-      if (memberRes.error && !String(memberRes.error.message || '').includes('duplicate')) {
-        return { ok: false, error: 'Could not join restaurant: ' + memberRes.error.message };
-      }
-    } else {
-      // Admin flow: create a new restaurant
-      const code = generateInviteCode();
-      const rName = (restaurantName && restaurantName.trim()) ? restaurantName.trim() : 'My Restaurant';
+    try {
+      if (preValidatedRestaurant) {
+        // MEMBER: join the pre-validated restaurant
+        restaurantId = preValidatedRestaurant.id;
+        restaurantNameFinal = preValidatedRestaurant.name;
+        role = 'member';
 
-      const restRes = await insertWithRetry(sb, 'mensa_restaurants', {
-        name: rName,
-        owner_id: activeUserId,
-        invite_code: code
-      }, 3);
+        const memberRes = await insertWithRetry(sb, 'mensa_members', {
+          restaurant_id: restaurantId,
+          user_id: activeUserId,
+          role: 'member'
+        }, 3);
+        if (memberRes.error && !String(memberRes.error.message || '').includes('duplicate')) {
+          throw new Error('Could not join restaurant: ' + memberRes.error.message);
+        }
+      } else {
+        // ADMIN: create a new restaurant
+        const code = generateInviteCode();
+        const rName = (restaurantName && restaurantName.trim()) ? restaurantName.trim() : 'My Restaurant';
 
-      if (restRes.error) {
-        return {
-          ok: false,
-          error: (STATE.lang === 'es' ? 'No se pudo crear el restaurante: ' : 'Could not create restaurant: ') + restRes.error.message
-        };
+        const restRes = await insertWithRetry(sb, 'mensa_restaurants', {
+          name: rName,
+          owner_id: activeUserId,
+          invite_code: code
+        }, 3);
+
+        if (restRes.error) {
+          throw new Error((STATE.lang === 'es' ? 'No se pudo crear el restaurante: ' : 'Could not create restaurant: ') + restRes.error.message);
+        }
+
+        restaurantId = restRes.data.id;
+        restaurantNameFinal = restRes.data.name;
+        role = 'owner';
+
+        const memberRes = await insertWithRetry(sb, 'mensa_members', {
+          restaurant_id: restaurantId,
+          user_id: activeUserId,
+          role: 'owner'
+        }, 3);
+        if (memberRes.error && !String(memberRes.error.message || '').includes('duplicate')) {
+          throw new Error('Could not link membership: ' + memberRes.error.message);
+        }
       }
-
-      restaurantId = restRes.data.id;
-      restaurantNameFinal = restRes.data.name;
-      role = 'owner';
-
-      const memberRes = await insertWithRetry(sb, 'mensa_members', {
-        restaurant_id: restaurantId,
-        user_id: activeUserId,
-        role: 'owner'
-      }, 3);
-      if (memberRes.error && !String(memberRes.error.message || '').includes('duplicate')) {
-        return { ok: false, error: 'Could not link membership: ' + memberRes.error.message };
-      }
+    } catch (innerErr) {
+      // Something failed AFTER user was created. Sign them out so
+      // they can try again (won't help with orphan auth user, but
+      // at least their next attempt won't be confused).
+      try { await sb.auth.signOut(); } catch (e) {}
+      STATE.auth = { user: null, restaurantId: null, restaurantName: null, role: null };
+      saveState();
+      return { ok: false, error: innerErr.message };
     }
 
+    // Success! Sign out so the user goes to login page (per UX request)
     STATE.auth = {
       user: { email: activeEmail, id: activeUserId },
       restaurantId,
@@ -8108,7 +8272,7 @@ async function authSignUp(email, password, restaurantName, inviteCode, accountTy
       STATE.customIngredients = []; STATE.customRecipes = []; STATE.inventoryAdjust = {};
     }
     saveState();
-    return { ok: true };
+    return { ok: true, role, restaurantName: restaurantNameFinal };
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -8337,6 +8501,70 @@ function authContinueOffline() {
   enterApp();
 }
 
+// v3.7: Show signup success modal then redirect to sign-in page
+function showSignupSuccess(email, role, restaurantName) {
+  const sb = STATE.supabase;
+  const isAdmin = role === 'owner';
+
+  const title = isAdmin
+    ? (STATE.lang === 'es' ? '¡Restaurante creado!' : 'Restaurant created!')
+    : (STATE.lang === 'es' ? '¡Bienvenido al equipo!' : 'Welcome to the team!');
+
+  const subtitle = isAdmin
+    ? (STATE.lang === 'es'
+        ? `Tu restaurante "${restaurantName || ''}" está listo. Ahora inicia sesión con tu cuenta.`
+        : `Your restaurant "${restaurantName || ''}" is ready. Now sign in with your account.`)
+    : (STATE.lang === 'es'
+        ? `Te uniste a "${restaurantName || ''}". Inicia sesión para empezar.`
+        : `You joined "${restaurantName || ''}". Sign in to get started.`);
+
+  const cta = STATE.lang === 'es' ? 'Ir al inicio de sesión' : 'Go to sign in';
+
+  // Use the auth screen container to render the success card
+  const root = $('#authScreen');
+  if (!root) {
+    enterApp();
+    return;
+  }
+
+  root.innerHTML = `
+    <div class="auth-card auth-success-card">
+      <div class="auth-success-icon">✓</div>
+      <h1 class="auth-success-title">${escHtml(title)}</h1>
+      <p class="auth-success-subtitle">${escHtml(subtitle)}</p>
+      ${isAdmin ? `
+        <p class="auth-success-note">${STATE.lang === 'es'
+          ? 'Después de entrar, ve a la pestaña <strong>Team Sync</strong> para copiar el código de invitación que compartirás con tu equipo.'
+          : 'Once inside, go to the <strong>Team Sync</strong> tab to copy the invitation code you will share with your team.'}</p>
+      ` : ''}
+      <button class="auth-submit" id="btnGoToLogin">${escHtml(cta)}</button>
+      <p class="auth-success-meta">${STATE.lang === 'es' ? 'Cuenta' : 'Account'}: <strong>${escHtml(email)}</strong></p>
+    </div>
+  `;
+
+  // Sign out so user has to log in fresh (as per user UX request)
+  (async () => {
+    try { if (sb) await sb.auth.signOut(); } catch (e) {}
+    STATE.auth = { user: null, restaurantId: null, restaurantName: null, role: null };
+    saveState();
+  })();
+
+  $('#btnGoToLogin').addEventListener('click', () => {
+    // Go back to the sign-in screen, pre-fill the email
+    root.dataset.mode = 'signin';
+    root.dataset.acctype = '';
+    renderAuthScreen();
+    setTimeout(() => {
+      const emailEl = $('#authEmail');
+      if (emailEl) {
+        emailEl.value = email;
+        const passEl = $('#authPass');
+        if (passEl) passEl.focus();
+      }
+    }, 50);
+  });
+}
+
 function enterApp() {
   showScreen('app');
   applyI18n();
@@ -8368,8 +8596,20 @@ function renderAuthScreen() {
   function setMsg(txt, isError) {
     const el = $('#authMsg');
     if (!el) return;
-    el.textContent = txt;
-    el.style.color = isError ? 'var(--accent)' : 'var(--olive)';
+    el.classList.remove('error-banner', 'ok-banner');
+    if (!txt) {
+      el.innerHTML = '';
+      return;
+    }
+    if (isError) {
+      el.classList.add('error-banner');
+      el.innerHTML = `<span class="msg-icon">⚠</span><span class="msg-text">${escHtml(txt)}</span>`;
+      // Scroll into view so user sees it
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      el.classList.add('ok-banner');
+      el.innerHTML = `<span class="msg-icon">✓</span><span class="msg-text">${escHtml(txt)}</span>`;
+    }
   }
 
   if (cloudMode) {
@@ -8507,10 +8747,17 @@ function renderAuthScreen() {
         res = await authSignIn(email, pass);
       }
       if (res.ok) {
-        enterApp();
+        if (isSignUp) {
+          // SIGNUP success: show success modal, then send user to login
+          showSignupSuccess(email, res.role, res.restaurantName);
+        } else {
+          // SIGN IN success: go straight into the app
+          enterApp();
+        }
       } else {
         $('#btnAuthSubmit').disabled = false;
         $('#btnAuthSubmit').textContent = origText;
+        // Show error in a more visible card-style banner
         setMsg(res.error || (STATE.lang === 'es' ? 'Algo salió mal. Intenta de nuevo.' : 'Something went wrong. Try again.'), true);
       }
     });
